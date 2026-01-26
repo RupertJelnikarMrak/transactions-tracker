@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO transactions (signature, slot, user_address, token_mint, amount)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (signature) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Varchar",
+        "Varchar",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bcbe920d780a31df044e7c7de05c620582e318b4762187a3e0ae3713fdd03eed"
+}

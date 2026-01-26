@@ -40,14 +40,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    println!("Rust NATS Listener active on port 3000");
+    println!("Listener active on port 3000");
     axum::serve(listener, app).await?;
 
     Ok(())
 }
 
 async fn handler(State(state): State<Arc<AppState>>, Json(payload): Json<Value>) -> StatusCode {
+    // TODO: Implement an authentication header check
     let payload_bytes = serde_json::to_vec(&payload).unwrap_or_default();
+
+    println!("A webhook has been recieved!");
 
     let result = state
         .js

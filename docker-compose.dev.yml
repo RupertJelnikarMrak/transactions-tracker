@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: dev_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: solana_data
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev_pg_data:/var/lib/postgresql/data
+    networks:
+      - dev_net
+
+  nats:
+    image: nats:2.10-alpine
+    command: "-js -sd /data"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - dev_net
+    restart: always
+
+volumes:
+  dev_pg_data:
+
+networks:
+  dev_net:
+    driver: bridge

@@ -1,3 +1,19 @@
 [workspace]
 resolver = "3"
-members = ["listener"]
+members = ["listener", "interpreter"]
+
+[workspace.dependencies]
+async-nats = "0.46.0"
+axum = "0.8.8"
+serde_json = "1.0.149"
+tokio = { version = "1.49.0", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.22"
+serde = { version = "1.0.228", features = ["derive"] }
+futures = "0.3.31"
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio-native-tls",
+    "postgres",
+    "json",
+] }
+dotenv = "0.15.0"
