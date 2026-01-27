@@ -16,4 +16,5 @@ sqlx = { version = "0.8.6", features = [
     "postgres",
     "json",
 ] }
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
+bytes = "1.11.0"

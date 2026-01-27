@@ -1,4 +1,4 @@
-# Solana blockchain state tracker for $SEAS
+# Solana blockchain state tracker
 
 ## Architecture Overview
 

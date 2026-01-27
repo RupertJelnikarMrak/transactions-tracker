@@ -2,23 +2,32 @@ use async_nats::jetstream::{self, stream};
 use axum::{
     Router,
     extract::{Json, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::post,
 };
+use dotenvy::dotenv;
 use serde_json::Value;
+use std::env;
 use std::sync::Arc;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 
 struct AppState {
     js: jetstream::Context,
+    auth_str: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let client = async_nats::connect("nats://127.0.0.1:4222").await?;
+    dotenv().ok();
+    let nats_url = env::var("NATS_URL").unwrap_or_else(|_| "nats:/127.0.0.1:4222".to_string());
+    let auth_str = env::var("WEBHOOK_AUTH").expect("WEBHOOK_AUTH env variable must be defined");
+
+    tracing::info!("Connecting to NATS at: {}", nats_url);
+
+    let client = async_nats::connect(nats_url).await?;
     let js = jetstream::new(client);
 
     let _stream = js
@@ -31,26 +40,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .await?;
 
-    println!("JetStream 'SOLANA_EVENTS' is ready.");
+    tracing::info!("JetStream 'SOLANA_EVENTS' is ready.");
 
-    let state = Arc::new(AppState { js });
+    let state = Arc::new(AppState { js, auth_str });
 
     let app = Router::new()
         .route("/webhooks", post(handler))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    println!("Listener active on port 3000");
+    tracing::info!("Listener active on port 3000");
+
     axum::serve(listener, app).await?;
 
     Ok(())
 }
 
-async fn handler(State(state): State<Arc<AppState>>, Json(payload): Json<Value>) -> StatusCode {
-    // TODO: Implement an authentication header check
-    let payload_bytes = serde_json::to_vec(&payload).unwrap_or_default();
+async fn handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> StatusCode {
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
 
-    println!("A webhook has been recieved!");
+    if state.auth_str != auth_header {
+        tracing::warn!("Unauthorized attempt. Header: {:?}", auth_header);
+        return StatusCode::UNAUTHORIZED;
+    }
+
+    let payload_bytes = serde_json::to_vec(&payload).unwrap_or_default();
 
     let result = state
         .js
@@ -60,7 +81,7 @@ async fn handler(State(state): State<Arc<AppState>>, Json(payload): Json<Value>)
     match result {
         Ok(_) => StatusCode::OK,
         Err(e) => {
-            eprintln!(
+            tracing::error!(
                 "Failed to publish to NATS! Writing to fallback file. Error: {}",
                 e
             );
@@ -72,7 +93,10 @@ async fn handler(State(state): State<Arc<AppState>>, Json(payload): Json<Value>)
 
             if let Ok(mut file) = file_result {
                 if let Err(io_err) = file.write_all(&payload_bytes).await {
-                    eprintln!("CRITICAL: Failed to write to fallback file: {}", io_err);
+                    tracing::error!(
+                        "CRITICAL: Disk Fallback Failed! Potential Data Loss! Error: {}",
+                        io_err
+                    );
                     return StatusCode::INTERNAL_SERVER_ERROR;
                 }
                 let _ = file.write_all(b"\n").await;
