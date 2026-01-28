@@ -5,6 +5,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     routing::post,
 };
+use bytes::Bytes;
 use dotenvy::dotenv;
 use serde_json::Value;
 use std::env;
@@ -71,7 +72,8 @@ async fn handler(
         return StatusCode::UNAUTHORIZED;
     }
 
-    let payload_bytes = serde_json::to_vec(&payload).unwrap_or_default();
+    let payload_vec = serde_json::to_vec(&payload).unwrap_or_default();
+    let payload_bytes = Bytes::from(payload_vec);
 
     let result = state
         .js
